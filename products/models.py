@@ -30,5 +30,12 @@ class ProductTag(TimeStampModel):
         return self.name
 
 class Cart(TimeStampModel):
-    products=models.ManytoManyFeild('products.Product', related_name='Carts')
-    user=models.OneToOneFeild('u
+    products=models.ManytoManyFeild('products.Product', related_name='carts')
+    user=models.OneToOneFeild('users.User', related_name='cart', on_delete=models.CASCADE)
+
+class FavoriteProduct(TimeStampModel):
+    product=models.ForeignKey('products.Product', related_name='favorite_product', on_delete=models.SET_NULL, null=True, blank=true)
+
+class ProductImage(TimeStampModel):
+    image=models.ImageFeild(upload_to='products/')
+    products=models.ForeignKey('products.Product', related_name='images', on_delete=models.CASCADE)
