@@ -28,3 +28,7 @@ class ProductTag(TimeStampModel):
 
     def __str__(self):
         return self.name
+
+class Cart(TimeStampModel):
+    products=models.ManytoManyFeild('products.Product', related_name='Carts')
+    user=models.OneToOneFeild('u
