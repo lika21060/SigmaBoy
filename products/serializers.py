@@ -1,65 +1,83 @@
 from rest_framework import serializers
-from products.models import Review, Product, ProductTag,FavoriteProduct
+from products.models import *
 
-class ProductSerializer(serializers.Serializer):
-    name=serializers.CharField()
-    description=serializers.CharField()
-    price=serializers.FloatField()
-    currency=serializers.ChoiceField(choices=['GEL', 'USD', 'EURO'])
-    
-class CartSerializer(serializers.Serializer):
-    product_id = serializers.IntegerField()
-    quantity = serializers.IntegerField(min_value=1)
 
-class ReviewSerializer(serializers.Serializer):
-    product_id = serializers.IntegerField(write_only=True)
-    content = serializers.CharField()
-    rating = serializers.IntegerField()
-    def validate_product_id(self, value):
-        try:
-            Product.objects.get(id=value)
-        except Product.DoesNotExist:
-            raise serializers.ValidationError("Invalid product_id. Product does not exist.")
+#no need for fields bc theyre automarically included with
+
+class ProductSerializer(serializers.ModelSerializer):
+    images = serializers.StringRelatedField(many=True, read_only=True)
+
+    class Meta:
+        model = Product
+        fields = ['id', 'name', 'description', 'price', 'currency', 'quantity', 'images']
+
+
+class CartSerializer(serializers.ModelSerializer):
+    products = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all(), many=True, required=False)
+
+    class Meta:
+        model = Cart
+        fields = ['id', 'user', 'products']
+
+    def validate_products(self, value):
+        #make sure all product ids are included
+        for product in value:
+            if not Product.objects.filter(id=product.id).exists():
+                raise serializers.ValidationError(f"Product with id {product.id} does not exist.")
         return value
+
+class ReviewSerializer(serializers.ModelSerializer):
+    product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
+
+    class Meta:
+        model = Review
+        fields = ['id', 'user', 'product', 'content', 'rating']
+
     def validate_rating(self, value):
+        #Rating must be between 1 and 5
         if value < 1 or value > 5:
             raise serializers.ValidationError("Rating must be between 1 and 5.")
         return value
+
     def create(self, validated_data):
-        product = Product.objects.get(id=validated_data['product_id'])
+      
         user = self.context['request'].user
-        review = Review.objects.create(
-            product=product,
-            user=user,
-            content=validated_data['content'],
-            rating=validated_data['rating'],
-        )
-        return review
-    
+        return Review.objects.create(user=user, **validated_data)
+
+
 class ProductTagSerializer(serializers.ModelSerializer):
-    product_id = serializers.IntegerField(write_only=True)
-    tag_name = serializers.CharField()
+    products = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all(), many=True)
 
     class Meta:
         model = ProductTag
-        fields = ['id', 'product_id', 'tag_name']
+        fields = ['id', 'name', 'products']
 
-    def validate_product_id(self, value):
-        if not Product.objects.filter(id=value).exists():
-            raise serializers.ValidationError("Invalid product_id. Product does not exist.")
+    def validate_name(self, value):
+        #tag name cannot be empty and should have a maximum of 50 characters.
+        if not value.strip():
+            raise serializers.ValidationError("Tag name cannot be empty.")
+        if len(value) > 50:
+            raise serializers.ValidationError("Tag name is too long. Maximum 50 characters allowed.")
         return value
 
-    def create(self, validated_data):
-        product = Product.objects.get(id=validated_data['product_id'])
-        tag = ProductTag.objects.get_or_create(product=product, tag_name=validated_data['tag_name'])
-        return tag
-    
+
 class FavoriteProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = FavoriteProduct
         fields = ['id', 'user', 'product']
-    
+        read_only_fields = ['user']  # User is automatically assigned
+
     def validate(self, data):
-        if 'user' not in data or 'product' not in data:
-            raise serializers.ValidationError("Both user and product are required.")
+        
+        user = self.context['request'].user
+        product = data.get('product')
+
+        if FavoriteProduct.objects.filter(user=user, product=product).exists():
+            raise serializers.ValidationError("This product is already in your favorites.")
         return data
+
+
+class ProductImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductImage
+        fields = ['id', 'image', 'product']
