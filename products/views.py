@@ -59,7 +59,6 @@ class FavoriteProductView(mixins.ListModelMixin, mixins.CreateModelMixin, generi
     
     def post(self, request, *args, **kwargs):
         return self.create(request, *args, **kwargs)
-
 class CartView(mixins.ListModelMixin, mixins.CreateModelMixin, generics.GenericAPIView):
     serializer_class = CartItemSerializer
     permission_classes = [IsAuthenticated]
@@ -80,5 +79,18 @@ class CartView(mixins.ListModelMixin, mixins.CreateModelMixin, generics.GenericA
             return Response(serializer.data, status=201)
         
         return Response(serializer.errors, status=400)
+
+class ProductImageViewSet(ModelViewSet):
+    queryset = ProductImage.objects.all()
+    serializer_class = ProductImageSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        product_id = self.kwargs.get('product_id')
+        return self.queryset.filter(product__id=product_id) if product_id else self.queryset
+
+ 
+
+
 
  
