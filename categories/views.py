@@ -1,26 +1,32 @@
-from rest_framework import viewsets
-from rest_framework.generics import *
+from rest_framework.mixins import ListModelMixin, RetrieveModelMixin, CreateModelMixin
+from rest_framework.viewsets import GenericViewSet
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.mixins import *
-from categories.serializers import *
-from categories.models import *
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.exceptions import NotFound
 
-class CategoryListView(ListAPIView):
+from categories.models import Category, CategoryImage
+from categories.serializers import CategorySerializer, CategoryImageSerializer
+
+class CategoryViewSet(ListModelMixin, RetrieveModelMixin, GenericViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     permission_classes = [IsAuthenticated]
+    
+    # ufro didi dataset istvis
+    pagination_class = PageNumberPagination
 
-class CategoryDetailView(RetrieveAPIView):
-    queryset = Category.objects.all()
-    serializer_class = CategoryDetailSerializer
-    permission_classes = [IsAuthenticated]
-
-class CategoryImageViewSet(viewsets.GenericViewSet, ListModelMixin, CreateModelMixin):
+class CategoryImageViewSet(ListModelMixin, CreateModelMixin, GenericViewSet):
+    queryset = CategoryImage.objects.all()
     serializer_class = CategoryImageSerializer
     permission_classes = [IsAuthenticated]
+    
+    pagination_class = PageNumberPagination
 
     def get_queryset(self):
-        category_id = self.kwargs.get('category_id')
-        if category_id:
-            return CategoryImage.objects.filter(category_id=category_id)
-        return CategoryImage.objects.none()
+        category_pk = self.kwargs.get('category_pk')
+        
+        try:
+            category = Category.objects.get(pk=category_pk)
+        except Category.DoesNotExist:
+            raise NotFound(detail="Category not found.")
+        return self.queryset.filter(category_id=category.pk)
